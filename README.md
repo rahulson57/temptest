@@ -54,7 +54,7 @@ bookmarks and a threaded comment.
 | `npm run db:seed` | Load fixtures (safe to re-run) |
 | `npm run db:reset` | Drop, re-migrate, re-seed |
 | `npm test` | Vitest — unit + integration |
-| `npm test -- tests/auth/session.test.ts` | A single test file |
+| `npm test -- tests/lib/slug.test.ts` | A single test file |
 | `npm run test:e2e` | Playwright E2E |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |

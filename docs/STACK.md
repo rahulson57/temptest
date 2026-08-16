@@ -40,7 +40,7 @@ npm run db:seed      # deterministic, idempotent fixtures (safe to re-run)
 npm run db:reset     # drop, re-migrate, re-seed
 
 npm test             # Vitest: unit + integration
-npm test -- tests/auth/session.test.ts   # a single file
+npm test -- tests/lib/slug.test.ts       # a single file
 
 npm run test:e2e     # Playwright
 npm run typecheck    # tsc --noEmit
@@ -214,6 +214,25 @@ coordinator.
 
 - **Vitest** (`npm test`) — unit + integration. Specs go in `tests/<feature>/*.test.ts`.
 - **Playwright** (`npm run test:e2e`) — E2E only, in `tests/e2e/`. Vitest explicitly excludes that directory.
+
+### Test-tree ownership
+
+The test tree is owned exactly like the source tree. Put your specs in your own
+directory — do not add files to another vertical's.
+
+| Path | Owner |
+| --- | --- |
+| `tests/helpers/**`, `tests/lib/**`, `tests/db/**` | **Foundations** (this task) |
+| `tests/stories/**`, `tests/uploads/**` | **Authoring** (TASK-003) |
+| `tests/reading/**`, `tests/comments/**` | **Reading** (TASK-004) |
+| `tests/feed/**`, `tests/search/**` | **Discovery** (TASK-005) |
+| `tests/auth/**`, `tests/social/**`, `tests/profiles/**` | **Accounts + Social** (TASK-006) |
+| `tests/e2e/**` | **Integration** (TASK-007) |
+
+Note: the tests for the auth *primitives* (hashing, session sign/verify) live in
+`tests/lib/auth-password.test.ts` and `tests/lib/auth-session.test.ts`, because
+Foundations owns the primitives. `tests/auth/**` is reserved for TASK-006's
+signup / login / logout / protected-route endpoint tests.
 
 The harness in `tests/helpers/` is ready to use:
 

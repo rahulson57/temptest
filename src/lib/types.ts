@@ -43,6 +43,14 @@ export type TagSummary = {
   id: string;
   name: string;
   slug: string;
+  /**
+   * Whether the viewer follows this tag (false when signed out).
+   *
+   * OPTIONAL on purpose: story cards and feed rows list tags without resolving
+   * follow state, and forcing them to would add a query per card. Tag pages
+   * rendering <FollowTagButton> resolve it; everyone else omits it.
+   */
+  viewerIsFollowing?: boolean;
 };
 
 /** A story as rendered in feeds, lists and cards. */
@@ -62,11 +70,20 @@ export type StorySummary = {
   commentCount: number;
 };
 
-/** A story on its own page: summary plus sanitized body. */
+/**
+ * A story on its own page: summary plus sanitized body and viewer state.
+ *
+ * The three `viewer*` fields are what the story page's social controls need to
+ * render correctly on first paint. They are resolved ONCE by whoever loads the
+ * story, so no control has to fetch its own state — and they are all false/0
+ * when signed out.
+ */
 export type StoryDetail = StorySummary & {
   bodyHtml: string;
   viewerHasBookmarked: boolean;
   viewerClapCount: number;
+  /** Whether the viewer follows this story's author (false when signed out). */
+  viewerIsFollowingAuthor: boolean;
 };
 
 export type CommentNode = {
