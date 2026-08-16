@@ -1,0 +1,180 @@
+// Quill — complete data model for every vertical.
+//
+// This file is owned by FOUNDATIONS (TASK-002). Downstream verticals
+// (Accounts, Authoring, Reading, Discovery, Social) MUST NOT edit prisma/**.
+// If you need a schema change, ask the coordinator to route it back here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum StoryStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  handle       String   @unique
+  displayName  String
+  bio          String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stories   Story[]
+  comments  Comment[]
+  claps     Clap[]
+  bookmarks Bookmark[]
+  uploads   Upload[]
+
+  following  Follow[]    @relation("FollowFollower")
+  followers  Follow[]    @relation("FollowFollowing")
+  tagFollows TagFollow[]
+}
+
+model Story {
+  id                 String      @id @default(cuid())
+  authorId           String
+  title              String
+  subtitle           String?
+  slug               String      @unique
+  bodyHtml           String      @default("")
+  coverImageUrl      String?
+  status             StoryStatus @default(DRAFT)
+  readingTimeMinutes Int         @default(1)
+  publishedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  tags      StoryTag[]
+  comments  Comment[]
+  claps     Clap[]
+  bookmarks Bookmark[]
+
+  // Feed: published stories, newest first.
+  @@index([status, publishedAt(sort: Desc)])
+  // Profile: one author's published stories, newest first.
+  @@index([authorId, status, publishedAt(sort: Desc)])
+  // Slug lookup (the @unique already indexes this; explicit for query planning intent).
+  @@index([slug])
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  stories   StoryTag[]
+  followers TagFollow[]
+}
+
+/// Join table. Max 5 tags per story is enforced in app-level validation
+/// (src/lib/validation/common.ts → tagSlugsSchema), not by the database.
+model StoryTag {
+  storyId String
+  tagId   String
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, tagId])
+  // Tag pages: every story carrying a tag.
+  @@index([tagId, storyId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  storyId   String
+  authorId  String
+  parentId  String?
+  bodyText  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  /// Soft delete: keep the row so child replies stay threaded.
+  deletedAt DateTime?
+
+  story    Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentThread")
+
+  @@index([storyId, createdAt])
+  @@index([parentId])
+}
+
+/// `count` is the number of claps this user gave this story.
+/// App-level cap: 50 per user per story (src/lib/types.ts → MAX_CLAPS_PER_USER).
+model Clap {
+  userId    String
+  storyId   String
+  count     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, storyId])
+  @@index([storyId])
+}
+
+model Bookmark {
+  userId    String
+  storyId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, storyId])
+  // Reading list: one user's bookmarks, newest first.
+  @@index([userId, createdAt])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model TagFollow {
+  userId    String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tagId])
+  @@index([userId])
+}
+
+model Upload {
+  id        String   @id @default(cuid())
+  ownerId   String
+  key       String   @unique
+  url       String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+}
