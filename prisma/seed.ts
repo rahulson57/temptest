@@ -12,7 +12,22 @@ import { sanitizeStoryHtml } from '../src/lib/sanitize';
  * do not renumber them.
  */
 
-const prisma = new PrismaClient();
+/**
+ * SEED_DATABASE_URL wins over DATABASE_URL when set.
+ *
+ * Importing @prisma/client loads .env, and .env's DATABASE_URL points at the
+ * DEV database. A test harness that spawns this script must therefore be able
+ * to name its target in a variable that .env does not own — otherwise the seed
+ * happily writes dev.db while the tests read test.db, and every count assertion
+ * comes back 0. SEED_DATABASE_URL is that variable.
+ *
+ * Normal `npm run db:seed` sets neither and gets .env's DATABASE_URL as usual.
+ */
+const seedDatabaseUrl = process.env.SEED_DATABASE_URL;
+
+const prisma = new PrismaClient(
+  seedDatabaseUrl ? { datasources: { db: { url: seedDatabaseUrl } } } : undefined,
+);
 
 /** Fixed clock so publishedAt never drifts between runs. */
 const EPOCH = new Date('2025-01-06T09:00:00.000Z');

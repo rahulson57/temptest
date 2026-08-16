@@ -16,7 +16,7 @@ Visual/typographic rules live in [`docs/DESIGN.md`](./DESIGN.md).
 | UI | **React 19** | `'use client'` only where you need state/effects |
 | Language | **TypeScript**, `strict` + `noUncheckedIndexedAccess` | |
 | Runtime | **Node 22** | |
-| ORM / DB | **Prisma 6 + SQLite** | `prisma/dev.db`, tests use `prisma/test.db` |
+| ORM / DB | **Prisma 6 + SQLite** | `prisma/dev.db`; each test run gets its own `prisma/test-<pid>.db` |
 | Styling | **Tailwind CSS 3.4** | The ONLY styling system. No CSS-in-JS, no second UI kit |
 | Auth | **Custom email/password** — bcryptjs + `jose` JWT | httpOnly `session` cookie, SameSite=Lax, 7 days. No NextAuth |
 | Rich text | **Tiptap (ProseMirror)** | Stored as HTML, sanitized server-side |
@@ -172,7 +172,7 @@ import { requireUser } from '@/lib/auth';                        // ❌ pulls in
 
 ## 6. Data model
 
-Nine models, complete for all verticals: `User`, `Story`, `Tag`, `StoryTag`,
+Ten models, complete for all verticals: `User`, `Story`, `Tag`, `StoryTag`,
 `Comment`, `Clap`, `Bookmark`, `Follow`, `TagFollow`, `Upload`. See
 `prisma/schema.prisma` — it is commented.
 
@@ -245,6 +245,25 @@ The harness in `tests/helpers/` is ready to use:
 
 The database is **truncated before every test** — suites never depend on each
 other's data, and never on seed data. Create what you need with factories.
+
+**Two harness rules you must not undo** (both were real bugs, caught by the
+clean-checkout gate):
+
+1. Each run gets its OWN database file, `prisma/test-<pid>.db`, at an ABSOLUTE
+   path. Never reintroduce a fixed `test.db`: global setup deletes its database
+   before migrating, so two concurrent runs would delete it out from under each
+   other ("no such table"). A relative `file:./x.db` is also resolved
+   differently by the Prisma CLI (relative to `prisma/`) than by a spawned
+   script (relative to CWD), which puts them on different files.
+2. If you spawn a process that writes to the database (like the seed), pass it
+   `SEED_DATABASE_URL`/`DATABASE_URL` EXPLICITLY. Importing `@prisma/client`
+   loads `.env`, which can overwrite `DATABASE_URL` with the dev database — the
+   seed then writes `dev.db` while your assertions read the test DB and every
+   count comes back 0.
+
+And when you assert over a collection, **assert a non-zero precondition first**.
+`expect(rows).toEqual(other)` and "every row is sanitized" both pass vacuously
+on an empty table, so a suite can report green while the data layer did nothing.
 
 Testing a handler that calls `cookies()` (i.e. anything using `getCurrentUser()`
 or `createSession()`)? `next/headers` needs a real Next request context, so mock

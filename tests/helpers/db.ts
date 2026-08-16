@@ -11,13 +11,33 @@ import { PrismaClient } from '@prisma/client';
  * low seconds while still guaranteeing isolation.
  */
 
-// DATABASE_URL is set by tests/helpers/global-setup.ts in the main Vitest
-// process and inherited by every forked worker. The fallback only matters if a
-// suite is somehow run without that global setup.
-process.env.DATABASE_URL ??= `file:./test-${process.pid}.db`;
+/**
+ * Resolve the test database URL.
+ *
+ * TEST_DATABASE_URL is set by tests/helpers/global-setup.ts (absolute path) and
+ * inherited by every forked worker. Prefer it over DATABASE_URL: importing
+ * @prisma/client loads .env, which can overwrite process.env.DATABASE_URL with
+ * the DEV database — that is precisely how a test suite ends up asserting
+ * against one file while the seed writes another.
+ *
+ * Fail loudly rather than silently defaulting: a suite pointed at the wrong
+ * database produces confusing "0 rows" failures instead of an obvious error.
+ */
+function testDatabaseUrl(): string {
+  const url = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      'No TEST_DATABASE_URL/DATABASE_URL set. tests/helpers/global-setup.ts must run first ' +
+        '(it is wired as globalSetup in vitest.config.ts).',
+    );
+  }
+  return url;
+}
+
+export const TEST_DATABASE_URL = testDatabaseUrl();
 
 export const testPrisma = new PrismaClient({
-  datasources: { db: { url: process.env.DATABASE_URL } },
+  datasources: { db: { url: TEST_DATABASE_URL } },
   log: ['error'],
 });
 
