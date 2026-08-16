@@ -13,7 +13,9 @@ import { tableCounts, testPrisma } from '@tests/helpers/db';
 function runSeed() {
   execFileSync('npx', ['tsx', 'prisma/seed.ts'], {
     stdio: 'pipe',
-    env: { ...process.env, DATABASE_URL: 'file:./test.db', NODE_ENV: 'test' },
+    // Inherit this run's DATABASE_URL — never hardcode a shared file, or a
+    // concurrent test run would seed into the wrong database.
+    env: { ...process.env, NODE_ENV: 'test' },
   });
 }
 

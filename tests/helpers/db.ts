@@ -11,7 +11,10 @@ import { PrismaClient } from '@prisma/client';
  * low seconds while still guaranteeing isolation.
  */
 
-process.env.DATABASE_URL ??= 'file:./test.db';
+// DATABASE_URL is set by tests/helpers/global-setup.ts in the main Vitest
+// process and inherited by every forked worker. The fallback only matters if a
+// suite is somehow run without that global setup.
+process.env.DATABASE_URL ??= `file:./test-${process.pid}.db`;
 
 export const testPrisma = new PrismaClient({
   datasources: { db: { url: process.env.DATABASE_URL } },

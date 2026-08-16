@@ -9,7 +9,6 @@ import { disconnectDatabase, truncateDatabase } from './tests/helpers/db';
  * data create it explicitly via tests/helpers/factories.ts.
  */
 
-process.env.DATABASE_URL ??= 'file:./test.db';
 process.env.SESSION_SECRET ??= 'test-session-secret-not-used-in-production-0123456789';
 
 beforeEach(async () => {

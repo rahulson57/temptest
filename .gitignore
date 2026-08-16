@@ -24,7 +24,7 @@ next-env.d.ts
 *.db-wal
 *.db-shm
 /prisma/dev.db*
-/prisma/test.db*
+/prisma/test*.db*
 
 # uploads written by LocalDiskAdapter
 /public/uploads/*
