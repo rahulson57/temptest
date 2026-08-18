@@ -1,27 +1,26 @@
+'use client';
+
 import type { BookmarkButtonProps } from '@/lib/types';
+import { ToggleButton } from './ToggleButton';
 
 /**
- * STUB — see src/components/social/ClapButton.tsx for the contract rules.
- * CONTRACT: BookmarkButtonProps in src/lib/types.ts.
+ * Save a story to the reading list.
+ *
+ * CONTRACT: BookmarkButtonProps in src/lib/types.ts — frozen.
+ *
+ * `initialBookmarked` is resolved once by whoever loads the story
+ * (StoryDetail.viewerHasBookmarked), so the first paint is already correct and
+ * this control never fetches its own state.
  */
-export function BookmarkButton({ initialBookmarked }: BookmarkButtonProps) {
+export function BookmarkButton({ storyId, initialBookmarked }: BookmarkButtonProps) {
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      aria-pressed={initialBookmarked}
-      title="Bookmarks are coming soon"
-      aria-label={
-        initialBookmarked
-          ? 'Saved to your reading list. Editing is not available yet.'
-          : 'Save to reading list. Not available yet.'
-      }
-      className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-sm text-ink-muted opacity-60"
-    >
-      <span aria-hidden="true">{initialBookmarked ? '🔖' : '📑'}</span>
-      <span aria-hidden="true">{initialBookmarked ? 'Saved' : 'Save'}</span>
-    </button>
+    <ToggleButton
+      endpoint={`/api/social/bookmark/${encodeURIComponent(storyId)}`}
+      initialOn={initialBookmarked}
+      labels={['Save', 'Saved']}
+      ariaLabels={['Save this story to your reading list', 'Remove this story from your reading list']}
+      announcements={['Not in your reading list', 'Saved to your reading list']}
+    />
   );
 }
 

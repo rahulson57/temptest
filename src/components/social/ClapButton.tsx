@@ -1,32 +1,132 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { cn } from '@/lib/cn';
 import type { ClapButtonProps } from '@/lib/types';
+import { redirectToLogin, socialRequest } from './social-client';
+
+type ClapResponse = {
+  storyTotal: number;
+  userCount: number;
+  maxPerUser: number;
+  clamped: boolean;
+};
 
 /**
- * STUB — owned by FOUNDATIONS only until the Social vertical lands.
+ * Multi-clap control.
  *
- * CONTRACT: ClapButtonProps in src/lib/types.ts. The Social vertical replaces
- * this file's implementation behind the SAME props; the Reading vertical
- * imports it today and must not change when the real one arrives.
+ * CONTRACT: ClapButtonProps in src/lib/types.ts — frozen. Reading and Discovery
+ * import this concurrently; the implementation may change, the props may not.
  *
- * Renders a disabled, accessible control: it announces the real clap count and
- * says why it can't be used yet, rather than silently doing nothing on click.
+ * A clap is not a like: a reader may clap up to `maxPerUser` (50) times, so the
+ * button stays live and accumulates. Each tap optimistically increments and then
+ * reconciles against the server's authoritative totals, because the server
+ * CLAMPS at the ceiling — the optimistic guess is right 49 times out of 50 and
+ * the 50th correction is invisible.
+ *
+ * NO LAYOUT SHIFT: the count sits in a fixed-min-width, tabular-nums slot, so
+ * 9 → 10 → 100 does not reflow the surrounding byline.
  */
-export function ClapButton({ initialCount, initialUserCount, maxPerUser }: ClapButtonProps) {
-  const atLimit = initialUserCount >= maxPerUser;
+export function ClapButton({
+  storyId,
+  initialCount,
+  initialUserCount,
+  maxPerUser,
+}: ClapButtonProps) {
+  const ceiling = maxPerUser > 0 ? maxPerUser : 0;
+
+  const [total, setTotal] = useState(initialCount);
+  const [userCount, setUserCount] = useState(initialUserCount);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const atLimit = userCount >= ceiling;
+
+  function clap() {
+    if (atLimit) return;
+
+    // Optimistic, via FUNCTIONAL updates. Clapping is the one control here that
+    // is deliberately spammed — a reader taps it eight times in two seconds — so
+    // a handler that closed over a render-time `total` would compute 8 × (T+1)
+    // instead of T+8. Each update reads the latest state instead.
+    setTotal((current) => current + 1);
+    setUserCount((current) => Math.min(current + 1, ceiling));
+    setError(null);
+
+    startTransition(async () => {
+      const result = await socialRequest<ClapResponse>(
+        `/api/social/clap/${encodeURIComponent(storyId)}`,
+        'POST',
+        { count: 1 },
+      );
+
+      if (result.kind === 'unauthenticated') {
+        // Roll back before leaving, so a browser restoring this page from
+        // bfcache does not show a clap that was never recorded.
+        setTotal((current) => Math.max(current - 1, 0));
+        setUserCount((current) => Math.max(current - 1, 0));
+        redirectToLogin();
+        return;
+      }
+      if (result.kind === 'error') {
+        // Undo THIS request's increment only — other in-flight taps own theirs.
+        setTotal((current) => Math.max(current - 1, 0));
+        setUserCount((current) => Math.max(current - 1, 0));
+        setError(result.message);
+        return;
+      }
+      // The server is authoritative: it clamps at the ceiling, so this is also
+      // what corrects an optimistic guess that ran past 50.
+      setTotal(result.data.storyTotal);
+      setUserCount(result.data.userCount);
+    });
+  }
+
+  const label = atLimit
+    ? `${total} ${plural(total)}. You have given the maximum of ${ceiling} claps.`
+    : `Clap for this story. ${total} ${plural(total)}. You have given ${userCount}.`;
 
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      title="Claps are coming soon"
-      aria-label={`${initialCount} claps. Clapping is not available yet.`}
-      className="inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-sm text-ink-muted opacity-60"
-    >
-      <span aria-hidden="true">👏</span>
-      <span>{initialCount}</span>
-      {atLimit ? <span className="sr-only">You have given the maximum claps.</span> : null}
-    </button>
+    <div className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        onClick={clap}
+        disabled={atLimit}
+        aria-label={label}
+        // Explains the disabled state rather than leaving a dead control.
+        title={atLimit ? `You have given the maximum of ${ceiling} claps` : 'Clap for this story'}
+        className={cn(
+          'inline-flex h-9 items-center gap-2 rounded-full border border-border px-3 text-sm',
+          'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+          'disabled:cursor-not-allowed disabled:opacity-60',
+          userCount > 0 ? 'bg-surface text-ink' : 'text-ink-muted hover:bg-surface hover:text-ink',
+        )}
+      >
+        <span aria-hidden="true">👏</span>
+        {/* Fixed slot: the number changes, the box does not. */}
+        <span aria-hidden="true" className="min-w-[2ch] text-right tabular-nums">
+          {total}
+        </span>
+      </button>
+
+      {/* Announced on change; visually hidden because the count above is visible. */}
+      <span aria-live="polite" className="sr-only">
+        {`${total} ${plural(total)}${userCount > 0 ? `, ${userCount} from you` : ''}`}
+      </span>
+
+      {error ? (
+        <span role="alert" className="text-xs text-danger">
+          {error}
+        </span>
+      ) : null}
+
+      {pending ? <span className="sr-only">Saving your clap…</span> : null}
+    </div>
   );
+}
+
+function plural(count: number): string {
+  return count === 1 ? 'clap' : 'claps';
 }
 
 export default ClapButton;
