@@ -1,6 +1,6 @@
-import { created, parseJson, withApi } from '@/lib/api';
+import { created, withApi } from '@/lib/api';
 import { registerUser } from '@/server/auth/accounts';
-import { signupSchema } from '@/server/auth/schemas';
+import { parseBody, signupSchema } from '@/server/auth/schemas';
 
 /**
  * POST /api/auth/signup — create an account and sign in.
@@ -13,7 +13,7 @@ import { signupSchema } from '@/server/auth/schemas';
  * envelope carries field MESSAGES, never field VALUES.
  */
 export const POST = withApi(async (request: Request) => {
-  const input = await parseJson(request, signupSchema);
+  const input = await parseBody(request, signupSchema);
   const user = await registerUser(input);
   return created({ user });
 });

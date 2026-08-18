@@ -1,7 +1,7 @@
-import { ok, parseJson, withApi } from '@/lib/api';
+import { ok, withApi } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { updateProfile } from '@/server/profiles/profiles';
-import { updateProfileSchema } from '@/server/profiles/schemas';
+import { parseBody, updateProfileSchema } from '@/server/profiles/schemas';
 
 /**
  * GET/PATCH /api/profiles/me — read and edit the signed-in user's profile.
@@ -27,7 +27,7 @@ export const GET = withApi(async () => {
 
 export const PATCH = withApi(async (request: Request) => {
   const viewer = await requireUser();
-  const input = await parseJson(request, updateProfileSchema);
+  const input = await parseBody(request, updateProfileSchema);
   const user = await updateProfile(viewer, viewer.id, input);
   return ok({ user });
 });

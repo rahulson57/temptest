@@ -1,19 +1,41 @@
-import { z } from 'zod';
-import { AppError } from '@/lib/errors';
+import { z, type ZodSchema } from 'zod';
+import { parseJson } from '@/lib/api';
+import { AppError, ValidationError } from '@/lib/errors';
 import { cuidSchema } from '@/lib/validation/common';
 
 /**
  * Social-graph schemas.
  *
  * Route params go through `parseTargetId` for the same reason bodies go through
- * zod: an empty or 10KB `[storyId]` segment should be a clean 400, not a
- * database round-trip or a 500.
+ * `parseBody`: an empty or 10KB `[storyId]` segment should be a clean 400, not a
+ * database round-trip or a 500. A malformed URL segment and a failed body schema
+ * are both "the caller sent something this route cannot act on" — one status.
  *
- * NOTE (DEC-155): there is no local status-remapping wrapper here. Bodies go
- * through foundations' `parseJson` unchanged — one zod boundary, one field-error
- * shape, one status. A malformed URL SEGMENT is a different thing from a failed
- * body schema, and `BadRequestError` (400) is the honest code for it.
+ * REVERSES DEC-155, which let bodies keep foundations' 422. This vertical's spec
+ * ("zod-validated (400 on bad input)") and the review charter both require 400,
+ * and every rejection test here asserts it. The remap lives at this domain
+ * boundary rather than in `src/lib`, which is shared with verticals that may
+ * legitimately want 422 for a semantically-valid-but-unprocessable body.
  */
+
+/**
+ * Parse a JSON body, reporting a failed schema as 400 with its field detail intact.
+ *
+ * Unparseable JSON already arrives as `BAD_REQUEST` from `parseJson`; only the
+ * schema failure needs remapping, and `fields` is carried across verbatim so the
+ * envelope still names the offending keys.
+ */
+export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
+  try {
+    return await parseJson(request, schema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new AppError('BAD_REQUEST', error.message, error.fields);
+    }
+    throw error;
+  }
+}
+
 export const targetIdSchema = cuidSchema;
 
 /**

@@ -1,5 +1,26 @@
-import { z } from 'zod';
+import { z, type ZodSchema } from 'zod';
+import { parseJson } from '@/lib/api';
+import { AppError, ValidationError } from '@/lib/errors';
 import { bioSchema, displayNameSchema, imageUrlSchema } from '@/lib/validation/common';
+
+/**
+ * Parse a JSON body, reporting a failed schema as 400 with its field detail intact.
+ *
+ * Same remap as `src/server/auth/schemas.ts` and `src/server/social/schemas.ts`,
+ * where the full rationale lives: foundations answers a failed body schema with
+ * 422, this vertical's spec and its rejection tests require 400, and `src/lib` is
+ * shared so the remap belongs at the domain boundary.
+ */
+export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
+  try {
+    return await parseJson(request, schema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new AppError('BAD_REQUEST', error.message, error.fields);
+    }
+    throw error;
+  }
+}
 
 /**
  * Profile editing schema.

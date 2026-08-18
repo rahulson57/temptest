@@ -1,6 +1,6 @@
-import { ok, parseJson, withApi } from '@/lib/api';
+import { ok, withApi } from '@/lib/api';
 import { authenticate } from '@/server/auth/accounts';
-import { loginSchema } from '@/server/auth/schemas';
+import { loginSchema, parseBody } from '@/server/auth/schemas';
 
 /**
  * POST /api/auth/login — exchange credentials for a session cookie.
@@ -15,7 +15,7 @@ import { loginSchema } from '@/server/auth/schemas';
  * anyone test an email list against your user table for free.
  */
 export const POST = withApi(async (request: Request) => {
-  const input = await parseJson(request, loginSchema);
+  const input = await parseBody(request, loginSchema);
   const user = await authenticate(input);
   return ok({ user });
 });

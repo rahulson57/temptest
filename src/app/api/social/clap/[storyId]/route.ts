@@ -1,7 +1,7 @@
-import { ok, parseJson, withApi } from '@/lib/api';
+import { ok, withApi } from '@/lib/api';
 import { requireUser } from '@/lib/auth';
 import { clapStory } from '@/server/social/claps';
-import { DEFAULT_CLAP_COUNT, clapSchema, parseTargetId } from '@/server/social/schemas';
+import { DEFAULT_CLAP_COUNT, clapSchema, parseBody, parseTargetId } from '@/server/social/schemas';
 
 /**
  * POST /api/social/clap/[storyId] — add claps, accumulating per user per story.
@@ -23,6 +23,6 @@ type Context = { params: Promise<{ storyId: string }> };
 export const POST = withApi(async (request: Request, context: Context) => {
   const viewer = await requireUser();
   const storyId = parseTargetId((await context.params).storyId, 'storyId');
-  const { count } = await parseJson(request, clapSchema);
+  const { count } = await parseBody(request, clapSchema);
   return ok(await clapStory(viewer.id, storyId, count ?? DEFAULT_CLAP_COUNT));
 });

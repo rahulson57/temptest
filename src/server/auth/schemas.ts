@@ -1,5 +1,29 @@
-import { z } from 'zod';
+import { z, type ZodSchema } from 'zod';
+import { parseJson } from '@/lib/api';
+import { AppError, ValidationError } from '@/lib/errors';
 import { RESERVED_HANDLES, displayNameSchema, emailSchema, passwordSchema } from '@/lib/validation/common';
+
+/**
+ * Parse a JSON body, reporting a failed schema as 400 with its field detail intact.
+ *
+ * Foundations' `parseJson` throws `ValidationError`, which `ERROR_STATUS` maps to
+ * 422. This vertical's spec and the review charter both require 400 for a failed
+ * body schema, so the code is remapped at the domain boundary rather than in
+ * `src/lib`, which is shared with verticals that may legitimately want 422. The
+ * rationale in full lives in `src/server/social/schemas.ts` (reverses DEC-155);
+ * each domain carries its own copy because this vertical's file scope has no
+ * shared server module to hang it on.
+ */
+export async function parseBody<T>(request: Request, schema: ZodSchema<T>): Promise<T> {
+  try {
+    return await parseJson(request, schema);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new AppError('BAD_REQUEST', error.message, error.fields);
+    }
+    throw error;
+  }
+}
 
 /**
  * Account schemas.
