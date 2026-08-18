@@ -45,11 +45,12 @@ export function ClapButton({
   function clap() {
     if (atLimit) return;
 
-    // Optimistic: the server is authoritative and corrects us below.
-    const optimisticTotal = total + 1;
-    const optimisticUser = Math.min(userCount + 1, ceiling);
-    setTotal(optimisticTotal);
-    setUserCount(optimisticUser);
+    // Optimistic, via FUNCTIONAL updates. Clapping is the one control here that
+    // is deliberately spammed — a reader taps it eight times in two seconds — so
+    // a handler that closed over a render-time `total` would compute 8 × (T+1)
+    // instead of T+8. Each update reads the latest state instead.
+    setTotal((current) => current + 1);
+    setUserCount((current) => Math.min(current + 1, ceiling));
     setError(null);
 
     startTransition(async () => {
@@ -60,15 +61,22 @@ export function ClapButton({
       );
 
       if (result.kind === 'unauthenticated') {
+        // Roll back before leaving, so a browser restoring this page from
+        // bfcache does not show a clap that was never recorded.
+        setTotal((current) => Math.max(current - 1, 0));
+        setUserCount((current) => Math.max(current - 1, 0));
         redirectToLogin();
         return;
       }
       if (result.kind === 'error') {
-        setTotal(total);
-        setUserCount(userCount);
+        // Undo THIS request's increment only — other in-flight taps own theirs.
+        setTotal((current) => Math.max(current - 1, 0));
+        setUserCount((current) => Math.max(current - 1, 0));
         setError(result.message);
         return;
       }
+      // The server is authoritative: it clamps at the ceiling, so this is also
+      // what corrects an optimistic guess that ran past 50.
       setTotal(result.data.storyTotal);
       setUserCount(result.data.userCount);
     });
