@@ -160,8 +160,17 @@ export function ProfileSettingsForm({ user }: ProfileSettingsFormProps) {
           onChange={(event) => setBio(event.target.value)}
         />
 
-        <Input label="Handle" name="handle" value={`@${user.handle}`} readOnly disabled
-          hint="Your handle is part of your profile address and cannot be changed here." />
+        {/* readOnly, NOT disabled: a disabled input drops out of the tab order,
+            so a screen-reader user could never reach the one field that tells
+            them what their own handle is. readOnly keeps it focusable and
+            announced while still refusing edits. */}
+        <Input
+          label="Handle"
+          name="handle"
+          value={`@${user.handle}`}
+          readOnly
+          hint="Your handle is part of your profile address and cannot be changed here."
+        />
 
         <div className="flex items-center gap-4">
           <Button type="submit" disabled={submitting || uploading}>
