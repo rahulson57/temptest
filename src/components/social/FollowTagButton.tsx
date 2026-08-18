@@ -1,26 +1,26 @@
+'use client';
+
 import type { FollowTagButtonProps } from '@/lib/types';
+import { ToggleButton } from './ToggleButton';
 
 /**
- * STUB — see src/components/social/ClapButton.tsx for the contract rules.
- * CONTRACT: FollowTagButtonProps in src/lib/types.ts.
+ * Follow a topic.
+ *
+ * CONTRACT: FollowTagButtonProps in src/lib/types.ts — frozen. Discovery renders
+ * this on tag pages, resolving `initialFollowing` from
+ * TagSummary.viewerIsFollowing (optional there precisely so feed rows can list
+ * tags without paying for the follow lookup).
  */
-export function FollowTagButton({ initialFollowing }: FollowTagButtonProps) {
+export function FollowTagButton({ tagId, initialFollowing }: FollowTagButtonProps) {
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      aria-pressed={initialFollowing}
-      title="Following topics is coming soon"
-      aria-label={
-        initialFollowing
-          ? 'You follow this topic. Unfollowing is not available yet.'
-          : 'Follow this topic. Not available yet.'
-      }
-      className="inline-flex h-8 items-center rounded-full border border-border px-3 text-sm text-ink-muted opacity-60"
-    >
-      {initialFollowing ? 'Following' : 'Follow topic'}
-    </button>
+    <ToggleButton
+      endpoint={`/api/social/follow-tag/${encodeURIComponent(tagId)}`}
+      initialOn={initialFollowing}
+      labels={['Follow topic', 'Following']}
+      ariaLabels={['Follow this topic', 'Unfollow this topic']}
+      announcements={['You are not following this topic', 'You are following this topic']}
+      size="sm"
+    />
   );
 }
 

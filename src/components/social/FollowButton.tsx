@@ -1,26 +1,28 @@
+'use client';
+
 import type { FollowButtonProps } from '@/lib/types';
+import { ToggleButton } from './ToggleButton';
 
 /**
- * STUB — see src/components/social/ClapButton.tsx for the contract rules.
- * CONTRACT: FollowButtonProps in src/lib/types.ts.
+ * Follow a writer.
+ *
+ * CONTRACT: FollowButtonProps in src/lib/types.ts — frozen. `userId` is the
+ * user BEING followed, never the viewer.
+ *
+ * `initialFollowing` comes from StoryDetail.viewerIsFollowingAuthor on a story
+ * page, or from the profile loader on /u/[handle]. The server rejects a
+ * self-follow with 400; the surfaces that render this simply do not render it on
+ * your own profile, so that 400 is a backstop rather than a path users meet.
  */
-export function FollowButton({ initialFollowing }: FollowButtonProps) {
+export function FollowButton({ userId, initialFollowing }: FollowButtonProps) {
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      aria-pressed={initialFollowing}
-      title="Following is coming soon"
-      aria-label={
-        initialFollowing
-          ? 'You follow this writer. Unfollowing is not available yet.'
-          : 'Follow this writer. Not available yet.'
-      }
-      className="inline-flex h-9 items-center rounded-full border border-border px-4 text-sm text-ink-muted opacity-60"
-    >
-      {initialFollowing ? 'Following' : 'Follow'}
-    </button>
+    <ToggleButton
+      endpoint={`/api/social/follow/${encodeURIComponent(userId)}`}
+      initialOn={initialFollowing}
+      labels={['Follow', 'Following']}
+      ariaLabels={['Follow this writer', 'Unfollow this writer']}
+      announcements={['You are not following this writer', 'You are following this writer']}
+    />
   );
 }
 
